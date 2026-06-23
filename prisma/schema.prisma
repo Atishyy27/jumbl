@@ -1,0 +1,46 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Job {
+  id             String        @id @default(uuid())
+  title          String
+  description    String
+  requiredSkills Json          // Stored as a JSON array of strings: string[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  applications   Application[]
+}
+
+model Applicant {
+  id              String        @id @default(uuid())
+  name            String
+  email           String        @unique
+  college         String
+  skills          Json          // Stored as a JSON array of strings: string[]
+  experienceYears Int
+  status          String        @default("Applied") // "Applied", "Screening", "Interview", "Rejected", "Hired"
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  applications    Application[]
+}
+
+model Application {
+  id          String    @id @default(uuid())
+  applicantId String
+  jobId       String
+  matchScore  Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicant   Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, applicantId])
+}
