@@ -43,90 +43,41 @@ async function main() {
     jobs.push(job);
   }
 
-  // Create Applicants (10 candidates)
+  // Create Applicants (30+ candidates)
   console.log('Creating applicants...');
-  const applicantsData = [
-    {
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      college: 'Stanford University',
-      skills: ['React', 'TypeScript', 'Tailwind', 'CSS', 'HTML', 'Next.js'],
-      experienceYears: 3,
-      status: 'Interview',
-    },
-    {
-      name: 'Jane Smith',
-      email: 'jane.smith@example.com',
-      college: 'MIT',
-      skills: ['Node.js', 'PostgreSQL', 'Express', 'JavaScript', 'SQL'],
-      experienceYears: 5,
-      status: 'Hired',
-    },
-    {
-      name: 'Alex Johnson',
-      email: 'alex.johnson@example.com',
-      college: 'UC Berkeley',
-      skills: ['React', 'HTML', 'CSS', 'Figma'],
-      experienceYears: 1,
-      status: 'Applied',
-    },
-    {
-      name: 'Emily Davis',
-      email: 'emily.davis@example.com',
-      college: 'Carnegie Mellon University',
-      skills: ['Node.js', 'Express', 'TypeScript', 'Prisma', 'PostgreSQL', 'React'],
-      experienceYears: 4,
-      status: 'Screening',
-    },
-    {
-      name: 'Michael Brown',
-      email: 'michael.brown@example.com',
-      college: 'Georgia Tech',
-      skills: ['Python', 'Django', 'SQL', 'Docker'],
-      experienceYears: 2,
-      status: 'Rejected',
-    },
-    {
-      name: 'Sarah Wilson',
-      email: 'sarah.wilson@example.com',
-      college: 'University of Washington',
-      skills: ['Next.js', 'React', 'Tailwind', 'PostgreSQL', 'Node.js', 'TypeScript'],
-      experienceYears: 3,
-      status: 'Interview',
-    },
-    {
-      name: 'David Lee',
-      email: 'david.lee@example.com',
-      college: 'UT Austin',
-      skills: ['Node.js', 'PostgreSQL', 'Prisma', 'TypeScript', 'GraphQL', 'AWS'],
-      experienceYears: 6,
-      status: 'Hired',
-    },
-    {
-      name: 'Jessica Taylor',
-      email: 'jessica.taylor@example.com',
-      college: 'Boston University',
-      skills: ['HTML', 'CSS', 'React', 'TypeScript', 'Tailwind'],
-      experienceYears: 2,
-      status: 'Screening',
-    },
-    {
-      name: 'Ryan Martinez',
-      email: 'ryan.martinez@example.com',
-      college: 'UIUC',
-      skills: ['C++', 'Python', 'Java'],
-      experienceYears: 1,
-      status: 'Rejected',
-    },
-    {
-      name: 'Lisa Anderson',
-      email: 'lisa.anderson@example.com',
-      college: 'Cornell University',
-      skills: ['Next.js', 'React', 'Tailwind', 'Node.js', 'TypeScript', 'Express', 'PostgreSQL'],
-      experienceYears: 4,
-      status: 'Applied',
-    },
-  ];
+  
+  const firstNames = ['John', 'Jane', 'Alex', 'Emily', 'Michael', 'Sarah', 'David', 'Jessica', 'Ryan', 'Lisa', 'Daniel', 'Emma', 'Matthew', 'Olivia', 'Andrew', 'Sophia', 'James', 'Isabella', 'William', 'Mia', 'Benjamin', 'Charlotte', 'Lucas', 'Amelia', 'Henry', 'Harper', 'Alexander', 'Evelyn', 'Sebastian', 'Abigail'];
+  const lastNames = ['Doe', 'Smith', 'Johnson', 'Davis', 'Brown', 'Wilson', 'Lee', 'Taylor', 'Martinez', 'Anderson', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Thompson', 'Garcia', 'Martinez', 'Robinson', 'Clark', 'Rodriguez', 'Lewis', 'Lee', 'Walker', 'Hall', 'Allen', 'Young', 'Hernandez', 'King', 'Wright'];
+  const colleges = ['Stanford University', 'MIT', 'UC Berkeley', 'Carnegie Mellon University', 'Georgia Tech', 'University of Washington', 'UT Austin', 'Boston University', 'UIUC', 'Cornell University', 'Harvard', 'Yale', 'Princeton', 'Columbia', 'NYU'];
+  const availableSkills = ['React', 'TypeScript', 'Tailwind', 'CSS', 'HTML', 'Next.js', 'Node.js', 'PostgreSQL', 'Express', 'JavaScript', 'SQL', 'Figma', 'Prisma', 'Python', 'Django', 'Docker', 'GraphQL', 'AWS', 'C++', 'Java'];
+  const statuses = ['Applied', 'Screening', 'Interview', 'Rejected', 'Hired'];
+
+  const applicantsData = [];
+
+  for (let i = 0; i < 35; i++) {
+    const fn = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const ln = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const name = `${fn} ${ln}`;
+    const email = `${fn.toLowerCase()}.${ln.toLowerCase()}${i}@example.com`;
+    const college = colleges[Math.floor(Math.random() * colleges.length)];
+    
+    // Pick 3-7 random skills
+    const numSkills = Math.floor(Math.random() * 5) + 3;
+    const shuffledSkills = [...availableSkills].sort(() => 0.5 - Math.random());
+    const skills = shuffledSkills.slice(0, numSkills);
+    
+    const experienceYears = Math.floor(Math.random() * 8) + 1; // 1 to 8 years
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+    applicantsData.push({
+      name,
+      email,
+      college,
+      skills,
+      experienceYears,
+      status
+    });
+  }
 
   const applicants = [];
   for (const data of applicantsData) {
@@ -140,32 +91,20 @@ async function main() {
   const backendJob = jobs.find(j => j.title === 'Backend Engineer')!;
   const productJob = jobs.find(j => j.title === 'Product Engineer')!;
 
-  const applicationsMapping = [
-    // John Doe: Frontend & Product
-    { applicant: applicants[0], job: frontendJob },
-    { applicant: applicants[0], job: productJob },
-    // Jane Smith: Backend
-    { applicant: applicants[1], job: backendJob },
-    // Alex Johnson: Frontend
-    { applicant: applicants[2], job: frontendJob },
-    // Emily Davis: Backend & Product
-    { applicant: applicants[3], job: backendJob },
-    { applicant: applicants[3], job: productJob },
-    // Michael Brown: Backend
-    { applicant: applicants[4], job: backendJob },
-    // Sarah Wilson: Frontend & Product
-    { applicant: applicants[5], job: frontendJob },
-    { applicant: applicants[5], job: productJob },
-    // David Lee: Backend
-    { applicant: applicants[6], job: backendJob },
-    // Jessica Taylor: Frontend
-    { applicant: applicants[7], job: frontendJob },
-    // Ryan Martinez: Backend
-    { applicant: applicants[8], job: backendJob },
-    // Lisa Anderson: Product & Frontend
-    { applicant: applicants[9], job: productJob },
-    { applicant: applicants[9], job: frontendJob },
-  ];
+  const applicationsMapping = [];
+  
+  // Assign 1 or 2 jobs to each candidate
+  for (const applicant of applicants) {
+    const numJobs = Math.random() > 0.7 ? 2 : 1;
+    const shuffledJobs = [frontendJob, backendJob, productJob].sort(() => 0.5 - Math.random());
+    
+    for (let i = 0; i < numJobs; i++) {
+      applicationsMapping.push({
+        applicant,
+        job: shuffledJobs[i]
+      });
+    }
+  }
 
   for (const mapping of applicationsMapping) {
     const applicantSkills = mapping.applicant.skills as string[];
