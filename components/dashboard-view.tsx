@@ -20,8 +20,13 @@ import {
   Award,
   ChevronRight,
   TrendingUp,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { Applicant, Job } from "@/types/ats";
+import AddCandidateDialog from "@/components/add-candidate-dialog";
+import ToastNotification, { useToast } from "@/components/toast-notification";
 
 interface DashboardApplication {
   id: string;
@@ -41,6 +46,8 @@ interface DashboardApplicant extends Applicant {
   applications: DashboardApplication[];
 }
 
+const PAGE_LIMIT_OPTIONS = [10, 25, 50, 100];
+
 export default function DashboardView() {
   const [applicants, setApplicants] = useState<DashboardApplicant[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -52,6 +59,13 @@ export default function DashboardView() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [skillFilter, setSkillFilter] = useState("All");
   const [sortByScore, setSortByScore] = useState<"desc" | "asc" | "none">("none");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(10);
+
+  // Toast
+  const { toasts, addToast, dismissToast } = useToast();
 
   // Fetch data
   const fetchData = async () => {
@@ -89,6 +103,11 @@ export default function DashboardView() {
     fetchData();
   }, []);
 
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, skillFilter, sortByScore, pageLimit]);
+
   // Compute stats
   const totalApplicants = applicants.length;
   const totalJobs = jobs.length;
@@ -113,18 +132,12 @@ export default function DashboardView() {
   // Filter & Sort execution
   const processedApplicants = applicants
     .filter((candidate) => {
-      // 1. Search by name
       const nameMatch = candidate.name.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // 2. Filter by status
       const statusMatch = statusFilter === "All" || candidate.status === statusFilter;
-      
-      // 3. Filter by skill
       const skillMatch =
         skillFilter === "All" ||
         (Array.isArray(candidate.skills) &&
           candidate.skills.some((s: string) => s.toLowerCase() === skillFilter.toLowerCase()));
-
       return nameMatch && statusMatch && skillMatch;
     })
     .sort((a, b) => {
@@ -133,6 +146,13 @@ export default function DashboardView() {
       const scoreB = getMaxMatchScore(b);
       return sortByScore === "desc" ? scoreB - scoreA : scoreA - scoreB;
     });
+
+  // Pagination computation
+  const totalFiltered = processedApplicants.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageLimit));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIdx = (safePage - 1) * pageLimit;
+  const paginatedApplicants = processedApplicants.slice(startIdx, startIdx + pageLimit);
 
   // Cycle sorting state
   const handleSortToggle = () => {
@@ -147,6 +167,7 @@ export default function DashboardView() {
     setStatusFilter("All");
     setSkillFilter("All");
     setSortByScore("none");
+    setCurrentPage(1);
   };
 
   const getStatusBadgeStyle = (status: string) => {
@@ -174,6 +195,9 @@ export default function DashboardView() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Toast notifications */}
+      <ToastNotification toasts={toasts} onDismiss={dismissToast} />
+
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -184,16 +208,22 @@ export default function DashboardView() {
             Monitor and manage candidate applications, review technical matches, and progress candidates.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchData}
-          disabled={loading}
-          className="self-start md:self-auto gap-2 border-border/80 hover:bg-muted"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh Data
-        </Button>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <AddCandidateDialog
+            onSuccess={fetchData}
+            onToast={addToast}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            disabled={loading}
+            className="gap-2 border-border/80 hover:bg-muted"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Error state */}
@@ -276,7 +306,7 @@ export default function DashboardView() {
                 Detailed overview of candidates, skill fits, status, and scores
               </p>
             </div>
-            
+
             {/* Filters layout */}
             <div className="flex flex-wrap items-center gap-2.5">
               {/* Search input */}
@@ -390,92 +420,197 @@ export default function DashboardView() {
             </div>
           ) : (
             /* Main Applicant Table */
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-border bg-muted/15 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                    <th className="px-6 py-4">Name</th>
-                    <th className="px-6 py-4">College</th>
-                    <th className="px-6 py-4">Experience</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Match Score</th>
-                    <th className="px-6 py-4 text-center w-12">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60 text-sm">
-                  {processedApplicants.map((applicant) => {
-                    const bestScore = getMaxMatchScore(applicant);
-                    const bestApp =
-                      applicant.applications && applicant.applications.length > 0
-                        ? applicant.applications.reduce((best, current) =>
-                            current.matchScore > best.matchScore ? current : best
-                          )
-                        : null;
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/15 text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                      <th className="px-6 py-4">Name</th>
+                      <th className="px-6 py-4">College</th>
+                      <th className="px-6 py-4">Experience</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Match Score</th>
+                      <th className="px-6 py-4 text-center w-12">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60 text-sm">
+                    {paginatedApplicants.map((applicant) => {
+                      const bestScore = getMaxMatchScore(applicant);
+                      const bestApp =
+                        applicant.applications && applicant.applications.length > 0
+                          ? applicant.applications.reduce((best, current) =>
+                              current.matchScore > best.matchScore ? current : best
+                            )
+                          : null;
 
-                    return (
-                      <tr
-                        key={applicant.id}
-                        className="group hover:bg-muted/15 transition-colors cursor-pointer"
-                      >
-                        <td className="px-6 py-4">
-                          <Link href={`/applicant/${applicant.id}`} className="block">
-                            <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                              {applicant.name}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {applicant.email}
-                            </div>
-                          </Link>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1.5">
-                            <GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="truncate max-w-[200px]" title={applicant.college}>
-                              {applicant.college}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1.5">
-                            <Award className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span>
-                              {applicant.experienceYears} {applicant.experienceYears === 1 ? "year" : "years"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge variant="outline" className={`text-xs font-medium px-2.5 py-0.5 ${getStatusBadgeStyle(applicant.status)}`}>
-                            {applicant.status}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {bestApp ? (
-                            <div className="inline-flex flex-col items-end gap-1">
-                              <Badge
-                                variant="outline"
-                                className={`font-mono font-bold text-xs px-2 py-0.5 ${getScoreBadgeStyle(bestScore)}`}
-                              >
-                                {bestScore}% Match
-                              </Badge>
-                              <span className="text-[10px] text-muted-foreground max-w-[130px] truncate" title={bestApp.job?.title}>
-                                {bestApp.job?.title}
+                      return (
+                        <tr
+                          key={applicant.id}
+                          className="group hover:bg-muted/15 transition-colors cursor-pointer"
+                        >
+                          <td className="px-6 py-4">
+                            <Link href={`/applicant/${applicant.id}`} className="block">
+                              <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                                {applicant.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {applicant.email}
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1.5">
+                              <GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <span className="truncate max-w-[200px]" title={applicant.college}>
+                                {applicant.college}
                               </span>
                             </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground font-medium">N/A</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <Link href={`/applicant/${applicant.id}`} className="inline-flex items-center justify-center p-1 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-all">
-                            <ChevronRight className="h-4 w-4" />
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1.5">
+                              <Award className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <span>
+                                {applicant.experienceYears} {applicant.experienceYears === 1 ? "year" : "years"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge variant="outline" className={`text-xs font-medium px-2.5 py-0.5 ${getStatusBadgeStyle(applicant.status)}`}>
+                              {applicant.status}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            {bestApp ? (
+                              <div className="inline-flex flex-col items-end gap-1">
+                                <Badge
+                                  variant="outline"
+                                  className={`font-mono font-bold text-xs px-2 py-0.5 ${getScoreBadgeStyle(bestScore)}`}
+                                >
+                                  {bestScore}% Match
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground max-w-[130px] truncate" title={bestApp.job?.title}>
+                                  {bestApp.job?.title}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground font-medium">N/A</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <Link href={`/applicant/${applicant.id}`} className="inline-flex items-center justify-center p-1 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-all">
+                              <ChevronRight className="h-4 w-4" />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-border/60">
+                {/* Left: rows info + limit selector */}
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <span>
+                    Showing{" "}
+                    <span className="font-semibold text-foreground">
+                      {totalFiltered === 0 ? 0 : startIdx + 1}–{Math.min(startIdx + pageLimit, totalFiltered)}
+                    </span>{" "}
+                    of <span className="font-semibold text-foreground">{totalFiltered}</span> candidates
+                  </span>
+                  <div className="flex items-center gap-1.5 bg-muted/40 border border-border/80 px-2 py-1 rounded-lg">
+                    <span className="text-xs font-semibold text-muted-foreground">Show:</span>
+                    <select
+                      value={pageLimit}
+                      onChange={(e) => {
+                        setPageLimit(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="bg-transparent border-none focus:outline-none text-foreground font-medium text-xs cursor-pointer pr-1"
+                    >
+                      {PAGE_LIMIT_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt} className="bg-card text-foreground">
+                          {opt} / page
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Right: page nav */}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={safePage === 1}
+                    title="First page"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage === 1}
+                    title="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  {/* Page number chips */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => {
+                      if (totalPages <= 7) return true;
+                      return p === 1 || p === totalPages || Math.abs(p - safePage) <= 2;
+                    })
+                    .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                      if (idx > 0 && typeof arr[idx - 1] === "number" && (p as number) - (arr[idx - 1] as number) > 1) {
+                        acc.push("…");
+                      }
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((item, i) =>
+                      item === "…" ? (
+                        <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground text-sm select-none">
+                          …
+                        </span>
+                      ) : (
+                        <Button
+                          key={item}
+                          variant={safePage === item ? "default" : "outline"}
+                          size="icon-sm"
+                          onClick={() => setCurrentPage(item as number)}
+                          className="font-mono text-xs"
+                        >
+                          {item}
+                        </Button>
+                      )
+                    )}
+
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safePage === totalPages}
+                    title="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={safePage === totalPages}
+                    title="Last page"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
